@@ -1,0 +1,58 @@
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+    volumes:
+      - esdata01:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672" # RabbitMQ default port
+      - "15672:15672" # RabbitMQ management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  web:
+    build: .
+    command: gunicorn blog_website.wsgi:application --bind 0.0.0.0:8000
+    volumes:
+      - .:/app
+    depends_on:
+      - rabbitmq
+    environment:
+      - CELERY_BROKER_URL=amqp://rabbitmq:5672
+      - CELERY_RESULT_BACKEND=django-db
+
+  celery:
+    build: .
+    # command: celery -A blog_website worker -l info
+    volumes:
+      - .:/app
+    depends_on:
+      - rabbitmq
+    environment:
+      - CELERY_BROKER_URL=amqp://rabbitmq:5672
+      - CELERY_RESULT_BACKEND=django-db
+      - DJANGO_SETTINGS_MODULE=blog_website.settings
+
+volumes:
+  esdata01:
+  rabbitmq_data:
+# services:
+#   elasticsearch:
+#     image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+#     volumes:
+#       - esdata01:/usr/share/elasticsearch/data
+#     ports:
+#       - 9200:9200
+#     environment:
+#       - discovery.type=single-node
+#       - xpack.security.enabled=false
+
+# volumes:
+#   esdata01:
